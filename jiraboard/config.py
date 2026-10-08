@@ -19,13 +19,13 @@ class JiraConfig:
     base_url: str
     email: str
     api_token: str
-    milestone_key: str
+    task_key: str
     output: Path
 
     @classmethod
     def load(
         cls,
-        milestone_key: str,
+        task_key: str,
         output: Path,
         base_url: str | None = None,
         token_file: str | None = None,
@@ -36,7 +36,7 @@ class JiraConfig:
             base_url=resolved_base.rstrip("/"),
             email=email,
             api_token=api_token,
-            milestone_key=milestone_key.strip().upper(),
+            task_key=task_key.strip().upper(),
             output=Path(output),
         )
 

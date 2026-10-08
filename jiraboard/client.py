@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterator
 
 import requests
 
@@ -57,3 +57,22 @@ class JiraClient:
 
     def get_issue(self, key: str, fields: str) -> dict[str, Any]:
         return self.get(f"issue/{key}", params={"fields": fields})
+
+    def search(self, jql: str, fields: str, page_size: int = 100) -> Iterator[dict[str, Any]]:
+        """Yield every issue matching ``jql``, following ``nextPageToken``.
+
+        The ``parent`` relationship is only queryable through search: a child
+        carries the ``parent`` field, and the issue resource exposes no children
+        collection (its ``subtasks`` field covers sub-tasks only).
+        """
+        params: dict[str, Any] = {"jql": jql, "maxResults": page_size, "fields": fields}
+        next_page_token: str | None = None
+        while True:
+            page_params = dict(params)
+            if next_page_token:
+                page_params["nextPageToken"] = next_page_token
+            page = self.get("search/jql", params=page_params)
+            yield from page.get("issues", [])
+            next_page_token = page.get("nextPageToken")
+            if page.get("isLast") or not next_page_token:
+                return

@@ -1,14 +1,16 @@
 # release-milestones
 
-Generate a static, kanban-style HTML report showing the status of every child
-issue (subtask) of a given Jira task.
+Generate a static, kanban-style HTML report showing the status of every direct
+child issue of a given Jira task — Epics under an Objective, Tasks/Stories under
+an Epic, or sub-tasks under any issue.
 
-Rather than running a JQL search, the tool makes a single
-`GET /rest/api/3/issue/<KEY>?fields=subtasks` request and renders the subtasks
-Jira returns. It groups them into three workflow columns — **To Do**,
-**In Progress**, **Done** — based on their Jira status category. Each card links
-back to Jira and shows the issue type, exact status, priority, assignee and due
-date when available.
+Children are found by querying the issue `parent` field
+(`GET /rest/api/3/search/jql?jql=parent = "<KEY>"`) and following
+`nextPageToken` pagination. Results are deliberately *not* filtered by issue
+type, so every hierarchy level is tracked by the same code path. Issues are
+grouped into three workflow columns — **To Do**, **In Progress**, **Done** —
+based on their Jira status category. Each card links back to Jira and shows the
+issue type, exact status, priority, assignee and due date.
 
 ## Requirements
 
@@ -45,8 +47,9 @@ python3 -m jiraboard ADT-1589 -o report.html
 python3 -m jiraboard ADT-1589 --base-url https://example.atlassian.net --token-file /path/.jira-token
 ```
 
-`<KEY>` is the task whose subtasks are reported (e.g. `ADT-1589`). Children are
-read from the task's `subtasks` field; no JQL search is performed.
+`<KEY>` is the task whose children are reported (e.g. `ADT-1589`). Children are
+found via the `parent` field, so it works the same whether `<KEY>` is an
+Objective (children are Epics) or an Epic (children are Stories/Tasks/Bugs).
 
 ## Development
 
@@ -60,9 +63,9 @@ python3 -m unittest discover -s tests -v
 jiraboard/
   __main__.py     CLI entry point (python -m jiraboard)
   config.py       credential/token loading and validation
-  client.py       read-only Jira REST v3 client (basic auth)
+  client.py       read-only Jira REST v3 client (basic auth + search pagination)
   models.py       Status / Issue dataclasses
-  board.py        subtask fetching and kanban grouping
+  board.py        parent query, child fetching and kanban grouping
   render.py       Jinja environment and report writer
   templates/
     board.html.j2 self-contained kanban board
@@ -71,9 +74,10 @@ tests/            stdlib unittest suite
 
 ## Notes
 
-- The report is built from the `subtasks` field of a single issue lookup, so
-  only true sub-task issues appear. Issues attached through the hierarchy
-  `parent` field (for example **epics under an Objective**) are *not* subtasks
-  and are therefore not listed; the CLI warns when a task has no subtasks.
+- Children are enumerated with a `parent = "<KEY>"` search. The issue resource
+  exposes no children collection (its `subtasks` field only covers sub-task
+  issues), so a parent-scoped query is the only read-only way to find both
+  **Epics under an Objective** and **Tasks under an Epic**. The CLI warns when
+  nothing matches.
 - API errors are surfaced with Jira's `errorMessages`/`errors` text. A 404 on
   the task usually means the token cannot see that project.

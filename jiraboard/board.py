@@ -10,9 +10,12 @@ from .models import (
     Issue,
 )
 
-# A single issue lookup is all that is needed: Jira embeds the direct subtasks
-# of the requested issue in the ``subtasks`` field, so no search query runs.
-ISSUE_FIELDS = "summary,status,issuetype,subtasks"
+# The task itself needs only enough to render the header.
+ISSUE_FIELDS = "summary,status,issuetype"
+# Children can be any type: Epics under an Objective, Tasks/Stories/Bugs under
+# an Epic, or sub-tasks under any issue. The ``parent`` field is what links
+# them, so results are intentionally not filtered by issue type.
+CHILD_FIELDS = "summary,status,issuetype,assignee,priority,duedate,parent"
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,22 @@ class Board:
     @property
     def total(self) -> int:
         return sum(column.count for column in self.columns)
+
+
+def children_jql(task_key: str) -> str:
+    """JQL selecting every issue whose ``parent`` is the given task.
+
+    This deliberately covers all issue types so that Epics under an Objective
+    and Tasks/Stories under an Epic are tracked by the same code path.
+    """
+    return f'parent = "{task_key}" ORDER BY status ASC, key ASC'
+
+
+def fetch_children(client: JiraClient, task_key: str) -> list[Issue]:
+    return [
+        Issue.from_json(issue, client.base_url)
+        for issue in client.search(children_jql(task_key), fields=CHILD_FIELDS)
+    ]
 
 
 def group_into_columns(issues: list[Issue]) -> list[Column]:
@@ -63,20 +82,17 @@ def group_into_columns(issues: list[Issue]) -> list[Column]:
 
 def build_board(
     client: JiraClient,
-    milestone_key: str,
+    task_key: str,
     now: datetime | None = None,
 ) -> Board:
-    """Build a board from the milestone issue and its embedded subtasks."""
-    data = client.get_issue(milestone_key, fields=ISSUE_FIELDS)
-    fields = data.get("fields") or {}
-    milestone = Issue.from_json(data, client.base_url)
-    subtasks = [
-        Issue.from_json(subtask, client.base_url)
-        for subtask in fields.get("subtasks") or []
-    ]
+    """Build a board from the task and its direct children (via ``parent``)."""
+    milestone = Issue.from_json(
+        client.get_issue(task_key, fields=ISSUE_FIELDS), client.base_url
+    )
+    children = fetch_children(client, task_key)
     generated = now or datetime.now(timezone.utc)
     return Board(
         milestone=milestone,
-        columns=group_into_columns(subtasks),
+        columns=group_into_columns(children),
         generated_at=generated.strftime("%Y-%m-%d %H:%M UTC"),
     )

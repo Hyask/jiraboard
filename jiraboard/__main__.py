@@ -14,13 +14,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jiraboard",
         description=(
-            "Generate a static kanban-style HTML report of the child issues "
-            "(subtasks) of a Jira task."
+            "Generate a static kanban-style HTML report of the child issues of a "
+            "Jira task (linked through the parent field)."
         ),
     )
     parser.add_argument(
-        "milestone_key",
-        help="Jira issue key of the milestone/objective, e.g. ADT-1589",
+        "task_key",
+        help="Jira issue key of the task, e.g. an Objective, Epic or Story (ADT-1589)",
     )
     parser.add_argument(
         "-o",
@@ -43,22 +43,21 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    output = Path(args.output) if args.output else Path("out") / f"{args.milestone_key.strip().upper()}-board.html"
+    output = Path(args.output) if args.output else Path("out") / f"{args.task_key.strip().upper()}-board.html"
 
     try:
         config = JiraConfig.load(
-            milestone_key=args.milestone_key,
+            task_key=args.task_key,
             output=output,
             base_url=args.base_url,
             token_file=args.token_file,
         )
         client = JiraClient(config.base_url, config.email, config.api_token)
-        board = build_board(client, config.milestone_key)
+        board = build_board(client, config.task_key)
         path = write_report(board, config.output)
         if board.total == 0:
             print(
-                f"warning: {config.milestone_key} has no subtasks; children linked "
-                "via the parent field (e.g. epics under an objective) will not appear",
+                f"warning: no issues have parent = {config.task_key}",
                 file=sys.stderr,
             )
     except ConfigError as error:
@@ -68,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         print(error, file=sys.stderr)
         if error.status_code == 404:
             print(
-                f"hint: the token cannot see {args.milestone_key} (or it does not exist)",
+                f"hint: the token cannot see {args.task_key} (or it does not exist)",
                 file=sys.stderr,
             )
         return 1
