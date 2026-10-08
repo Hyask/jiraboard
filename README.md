@@ -13,7 +13,9 @@ issues are collected into a leading **Unassigned** column, except closed issues
 whether or not they are assigned; the rest are grouped into three workflow
 columns — **To Do**, **In Progress**, **Done** — based on their Jira status
 category. Each card links back to Jira and shows the issue type, exact status,
-priority, assignee and due date.
+priority, assignee and due date. The report is a single self-contained HTML file
+that defaults to a dark theme, with a header toggle to switch to light (the
+choice is remembered in `localStorage`).
 
 ## Requirements
 

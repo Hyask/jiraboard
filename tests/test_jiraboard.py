@@ -6,9 +6,10 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from jiraboard.board import build_board, children_jql, group_into_columns
+from jiraboard.board import Board, Column, build_board, children_jql, group_into_columns
 from jiraboard.config import ConfigError, read_credentials
 from jiraboard.models import Issue, Status
+from jiraboard.render import render_board
 
 BASE = "https://warthogs.atlassian.net"
 
@@ -217,6 +218,23 @@ class ChildrenJqlTest(unittest.TestCase):
         jql = children_jql("ADT-1589")
         self.assertIn('parent = "ADT-1589"', jql)
         self.assertNotIn("issuetype", jql)
+
+
+class RenderThemeTest(unittest.TestCase):
+    @staticmethod
+    def _board():
+        issue = make_issue("DPE-1", "Done", "done", "Done")
+        return Board(
+            milestone=issue,
+            columns=[Column(key="done", title="Done", issues=[issue])],
+            generated_at="2026-01-01 00:00 UTC",
+        )
+
+    def test_dark_theme_is_default_with_toggle(self):
+        html = render_board(self._board())
+        self.assertIn('<html lang="en" data-theme="dark">', html)
+        self.assertIn('id="theme-toggle"', html)
+        self.assertIn('data-theme="light"', html)
 
 
 if __name__ == "__main__":

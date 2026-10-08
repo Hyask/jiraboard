@@ -1,13 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ board.milestone.key }} &middot; child issue status</title>
 <style>
   :root {
+    color-scheme: dark;
+    --bg: #1d2125;
+    --panel: #22272b;
+    --column-bg: #161a1d;
+    --ink: #b6c2cf;
+    --muted: #8c9bab;
+    --line: #2c333a;
+    --todo: #596773;
+    --progress: #579dff;
+    --done: #4bce97;
+    --unknown: #9f8fef;
+    --unassigned: #f5cd47;
+    --unassigned-ink: #f5cd47;
+    --unassigned-col-bg: #2a2418;
+    --accent: #579dff;
+    --count-bg: rgba(255, 255, 255, .08);
+    --badge-bg: rgba(255, 255, 255, .10);
+    --badge-ink: #b6c2cf;
+    --status-bg: #38414a;
+    --status-ink: #b6c2cf;
+    --priority-bg: #1c2b41;
+    --priority-ink: #85b8ff;
+    --type-bg: #2b273f;
+    --type-ink: #b8acf6;
+    --shadow: none;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #f4f5f7;
     --panel: #ffffff;
+    --column-bg: #ebecf0;
     --ink: #172b4d;
     --muted: #6b778c;
     --line: #dfe1e6;
@@ -16,6 +45,19 @@
     --done: #00875a;
     --unknown: #6554c0;
     --unassigned: #ffab00;
+    --unassigned-ink: #974f0c;
+    --unassigned-col-bg: #fff7e6;
+    --accent: #0052cc;
+    --count-bg: rgba(9, 30, 66, .08);
+    --badge-bg: rgba(9, 30, 66, .08);
+    --badge-ink: #172b4d;
+    --status-bg: #dfe1e6;
+    --status-ink: #172b4d;
+    --priority-bg: #deebff;
+    --priority-ink: #0747a6;
+    --type-bg: #eae6ff;
+    --type-ink: #5243aa;
+    --shadow: 0 1px 1px rgba(9, 30, 66, .15);
   }
   * { box-sizing: border-box; }
   body {
@@ -26,14 +68,29 @@
     line-height: 1.4;
   }
   header {
+    position: relative;
     padding: 1.5rem 2rem 1rem;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
   }
   header h1 { margin: 0 0 .25rem; font-size: 1.35rem; }
   header .meta { color: var(--muted); font-size: .85rem; }
-  header .meta a { color: var(--progress); text-decoration: none; }
+  header .meta a { color: var(--accent); text-decoration: none; }
   header .meta a:hover { text-decoration: underline; }
+  .theme-toggle {
+    position: absolute;
+    top: 1.4rem;
+    right: 2rem;
+    font: inherit;
+    font-size: .78rem;
+    color: var(--ink);
+    background: var(--badge-bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .3rem .8rem;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
   .board {
     display: grid;
     grid-auto-flow: column;
@@ -44,7 +101,7 @@
     align-items: start;
   }
   .column {
-    background: #ebecf0;
+    background: var(--column-bg);
     border-radius: 8px;
     padding: .75rem;
     min-height: 120px;
@@ -60,7 +117,7 @@
     color: var(--muted);
   }
   .column > h2 .count {
-    background: rgba(9, 30, 66, .08);
+    background: var(--count-bg);
     border-radius: 999px;
     padding: .05rem .5rem;
     font-size: .75rem;
@@ -68,22 +125,22 @@
   .column[data-category="new"] > h2 { color: var(--ink); }
   .column[data-category="indeterminate"] > h2 { color: var(--progress); }
   .column[data-category="done"] > h2 { color: var(--done); }
-  .column[data-category="unassigned"] > h2 { color: #974f0c; }
-  .column[data-category="unassigned"] { background: #fff7e6; }
+  .column[data-category="unassigned"] > h2 { color: var(--unassigned-ink); }
+  .column[data-category="unassigned"] { background: var(--unassigned-col-bg); }
   .card {
     background: var(--panel);
     border-radius: 6px;
     border-left: 4px solid var(--unknown);
     padding: .6rem .7rem;
     margin-bottom: .5rem;
-    box-shadow: 0 1px 1px rgba(9, 30, 66, .15);
+    box-shadow: var(--shadow);
   }
   .column[data-category="new"] .card { border-left-color: var(--todo); }
   .column[data-category="indeterminate"] .card { border-left-color: var(--progress); }
   .column[data-category="done"] .card { border-left-color: var(--done); }
   .column[data-category="unassigned"] .card { border-left-color: var(--unassigned); }
   .card .key { font-size: .75rem; font-weight: 600; }
-  .card .key a { color: var(--progress); text-decoration: none; }
+  .card .key a { color: var(--accent); text-decoration: none; }
   .card .key a:hover { text-decoration: underline; }
   .card .summary { margin: .2rem 0 .5rem; font-size: .85rem; word-wrap: break-word; }
   .card .foot { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
@@ -91,13 +148,13 @@
     font-size: .68rem;
     border-radius: 3px;
     padding: .1rem .4rem;
-    background: rgba(9, 30, 66, .08);
-    color: var(--ink);
+    background: var(--badge-bg);
+    color: var(--badge-ink);
     white-space: nowrap;
   }
-  .badge.priority { background: #deebff; color: #0747a6; }
-  .badge.type { background: #eae6ff; color: #5243aa; }
-  .badge.status { background: var(--todo); }
+  .badge.priority { background: var(--priority-bg); color: var(--priority-ink); }
+  .badge.type { background: var(--type-bg); color: var(--type-ink); }
+  .badge.status { background: var(--status-bg); color: var(--status-ink); }
   .empty { color: var(--muted); font-size: .8rem; font-style: italic; padding: .25rem .1rem; }
 </style>
 </head>
@@ -110,6 +167,7 @@
     &middot; {{ board.total }} child issue{{ '' if board.total == 1 else 's' }}
     &middot; generated {{ board.generated_at }}
   </div>
+  <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
 </header>
 <main class="board">
   {% for column in board.columns %}
@@ -133,5 +191,24 @@
   </section>
   {% endfor %}
 </main>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById("theme-toggle");
+    var storageKey = "jiraboard-theme";
+    function apply(theme) {
+      root.setAttribute("data-theme", theme);
+      toggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+    }
+    var saved = null;
+    try { saved = localStorage.getItem(storageKey); } catch (error) {}
+    apply(saved === "light" ? "light" : "dark");
+    toggle.addEventListener("click", function () {
+      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      try { localStorage.setItem(storageKey, next); } catch (error) {}
+      apply(next);
+    });
+  })();
+</script>
 </body>
 </html>
