@@ -1,4 +1,4 @@
-.jira-token
+.jira-token*
 __pycache__/
 *.pyc
 out/

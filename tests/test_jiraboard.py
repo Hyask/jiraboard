@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
-from jiraboard.board import epic_jql, group_into_columns
+from jiraboard.board import build_board, group_into_columns
 from jiraboard.config import ConfigError, read_credentials
 from jiraboard.models import Issue, Status
 
@@ -115,10 +116,77 @@ class GroupingTest(unittest.TestCase):
         self.assertEqual([c.key for c in columns], ["new", "indeterminate", "done", "blocked"])
         self.assertEqual(columns[-1].title, "Blocked")
 
-    def test_epic_jql_filters_parent_and_type(self):
-        jql = epic_jql("ADT-1589")
-        self.assertIn('parent = "ADT-1589"', jql)
-        self.assertIn("issuetype = Epic", jql)
+
+class FakeClient:
+    base_url = BASE
+
+    def __init__(self, payload):
+        self.payload = payload
+        self.calls = []
+
+    def get_issue(self, key, fields):
+        self.calls.append((key, fields))
+        return self.payload
+
+
+class BuildBoardTest(unittest.TestCase):
+    @staticmethod
+    def _subtask(key, status_name, category_key, category_name):
+        return {
+            "key": key,
+            "fields": {
+                "summary": f"Subtask {key}",
+                "issuetype": {"name": "Sub-task"},
+                "priority": {"name": "Medium"},
+                "status": {
+                    "name": status_name,
+                    "statusCategory": {"key": category_key, "name": category_name},
+                },
+            },
+        }
+
+    def test_builds_board_from_embedded_subtasks(self):
+        payload = {
+            "key": "DPE-11116",
+            "fields": {
+                "summary": "Migrate refresh logic",
+                "issuetype": {"name": "Story"},
+                "status": {
+                    "name": "In Progress",
+                    "statusCategory": {"key": "indeterminate", "name": "In Progress"},
+                },
+                "subtasks": [
+                    self._subtask("DPE-1", "In Review", "indeterminate", "In Progress"),
+                    self._subtask("DPE-2", "Done", "done", "Done"),
+                ],
+            },
+        }
+        client = FakeClient(payload)
+        board = build_board(
+            client, "DPE-11116", now=datetime(2026, 1, 2, tzinfo=timezone.utc)
+        )
+
+        self.assertEqual(client.calls, [("DPE-11116", "summary,status,issuetype,subtasks")])
+        self.assertEqual(board.milestone.key, "DPE-11116")
+        self.assertEqual(board.total, 2)
+        self.assertEqual([c.count for c in board.columns], [0, 1, 1])
+        self.assertEqual(board.generated_at, "2026-01-02 00:00 UTC")
+
+    def test_issue_without_subtasks_yields_empty_board(self):
+        payload = {
+            "key": "DPE-9999",
+            "fields": {
+                "summary": "No children",
+                "issuetype": {"name": "Objective"},
+                "status": {
+                    "name": "To Do",
+                    "statusCategory": {"key": "new", "name": "To Do"},
+                },
+            },
+        }
+        board = build_board(FakeClient(payload), "DPE-9999")
+        self.assertEqual(board.total, 0)
+        self.assertEqual([c.key for c in board.columns], ["new", "indeterminate", "done"])
 
 
 if __name__ == "__main__":

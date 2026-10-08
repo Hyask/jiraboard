@@ -10,8 +10,9 @@ from .models import (
     Issue,
 )
 
-MILESTONE_FIELDS = "summary,status,issuetype"
-EPIC_FIELDS = "summary,status,issuetype,assignee,priority,duedate,parent"
+# A single issue lookup is all that is needed: Jira embeds the direct subtasks
+# of the requested issue in the ``subtasks`` field, so no search query runs.
+ISSUE_FIELDS = "summary,status,issuetype,subtasks"
 
 
 @dataclass(frozen=True)
@@ -36,27 +37,15 @@ class Board:
         return sum(column.count for column in self.columns)
 
 
-def epic_jql(milestone_key: str) -> str:
-    """JQL selecting every epic whose parent is the milestone issue."""
-    return f'parent = "{milestone_key}" AND issuetype = Epic ORDER BY status ASC, key ASC'
-
-
-def fetch_epics(client: JiraClient, milestone_key: str) -> list[Issue]:
-    return [
-        Issue.from_json(issue, client.base_url)
-        for issue in client.search(epic_jql(milestone_key), fields=EPIC_FIELDS)
-    ]
-
-
-def group_into_columns(epics: list[Issue]) -> list[Column]:
-    """Group epics into kanban columns by Jira status category.
+def group_into_columns(issues: list[Issue]) -> list[Column]:
+    """Group issues into kanban columns by Jira status category.
 
     The three canonical categories are always shown, in workflow order, even
     when empty; any unexpected category is appended afterwards.
     """
     by_category: dict[str, list[Issue]] = {}
-    for epic in epics:
-        by_category.setdefault(epic.status.category_key, []).append(epic)
+    for issue in issues:
+        by_category.setdefault(issue.status.category_key, []).append(issue)
 
     ordered_keys = list(STATUS_CATEGORY_ORDER)
     ordered_keys += [key for key in by_category if key not in ordered_keys]
@@ -77,13 +66,17 @@ def build_board(
     milestone_key: str,
     now: datetime | None = None,
 ) -> Board:
-    milestone = Issue.from_json(
-        client.get_issue(milestone_key, fields=MILESTONE_FIELDS), client.base_url
-    )
-    epics = fetch_epics(client, milestone_key)
+    """Build a board from the milestone issue and its embedded subtasks."""
+    data = client.get_issue(milestone_key, fields=ISSUE_FIELDS)
+    fields = data.get("fields") or {}
+    milestone = Issue.from_json(data, client.base_url)
+    subtasks = [
+        Issue.from_json(subtask, client.base_url)
+        for subtask in fields.get("subtasks") or []
+    ]
     generated = now or datetime.now(timezone.utc)
     return Board(
         milestone=milestone,
-        columns=group_into_columns(epics),
+        columns=group_into_columns(subtasks),
         generated_at=generated.strftime("%Y-%m-%d %H:%M UTC"),
     )

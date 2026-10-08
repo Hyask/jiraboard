@@ -14,8 +14,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jiraboard",
         description=(
-            "Generate a static kanban-style HTML report of every epic under a "
-            "Jira milestone issue."
+            "Generate a static kanban-style HTML report of the child issues "
+            "(subtasks) of a Jira task."
         ),
     )
     parser.add_argument(
@@ -55,6 +55,12 @@ def main(argv: list[str] | None = None) -> int:
         client = JiraClient(config.base_url, config.email, config.api_token)
         board = build_board(client, config.milestone_key)
         path = write_report(board, config.output)
+        if board.total == 0:
+            print(
+                f"warning: {config.milestone_key} has no subtasks; children linked "
+                "via the parent field (e.g. epics under an objective) will not appear",
+                file=sys.stderr,
+            )
     except ConfigError as error:
         print(f"configuration error: {error}", file=sys.stderr)
         return 2
@@ -67,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         return 1
 
-    print(f"wrote {path} ({board.total} epics)")
+    print(f"wrote {path} ({board.total} child issues)")
     return 0
 
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ board.milestone.key }} &middot; Epic status</title>
+<title>{{ board.milestone.key }} &middot; child issue status</title>
 <style>
   :root {
     --bg: #f4f5f7;
@@ -92,6 +92,7 @@
     white-space: nowrap;
   }
   .badge.priority { background: #deebff; color: #0747a6; }
+  .badge.type { background: #eae6ff; color: #5243aa; }
   .badge.status { background: var(--todo); }
   .empty { color: var(--muted); font-size: .8rem; font-style: italic; padding: .25rem .1rem; }
 </style>
@@ -102,7 +103,7 @@
   <div class="meta">
     <a href="{{ board.milestone.url }}" target="_blank" rel="noopener">{{ board.milestone.key }}</a>
     &middot; {{ board.milestone.issue_type }}
-    &middot; {{ board.total }} epic{{ '' if board.total == 1 else 's' }}
+    &middot; {{ board.total }} child issue{{ '' if board.total == 1 else 's' }}
     &middot; generated {{ board.generated_at }}
   </div>
 </header>
@@ -110,19 +111,20 @@
   {% for column in board.columns %}
   <section class="column" data-category="{{ column.key }}">
     <h2>{{ column.title }} <span class="count">{{ column.count }}</span></h2>
-    {% for epic in column.issues %}
+    {% for item in column.issues %}
     <article class="card">
-      <div class="key"><a href="{{ epic.url }}" target="_blank" rel="noopener">{{ epic.key }}</a></div>
-      <div class="summary">{{ epic.summary }}</div>
+      <div class="key"><a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.key }}</a></div>
+      <div class="summary">{{ item.summary }}</div>
       <div class="foot">
-        <span class="badge status">{{ epic.status.name }}</span>
-        {% if epic.priority %}<span class="badge priority">{{ epic.priority }}</span>{% endif %}
-        {% if epic.assignee %}<span class="badge">{{ epic.assignee }}</span>{% endif %}
-        {% if epic.due_date %}<span class="badge">due {{ epic.due_date }}</span>{% endif %}
+        <span class="badge type">{{ item.issue_type }}</span>
+        <span class="badge status">{{ item.status.name }}</span>
+        {% if item.priority %}<span class="badge priority">{{ item.priority }}</span>{% endif %}
+        {% if item.assignee %}<span class="badge">{{ item.assignee }}</span>{% endif %}
+        {% if item.due_date %}<span class="badge">due {{ item.due_date }}</span>{% endif %}
       </div>
     </article>
     {% else %}
-    <p class="empty">No epics</p>
+    <p class="empty">No child issues</p>
     {% endfor %}
   </section>
   {% endfor %}
