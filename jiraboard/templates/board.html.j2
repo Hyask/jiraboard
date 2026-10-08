@@ -91,6 +91,20 @@
     cursor: pointer;
   }
   .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .search {
+    display: block;
+    margin-top: .85rem;
+    width: min(360px, 100%);
+    font: inherit;
+    font-size: .85rem;
+    color: var(--ink);
+    background: var(--column-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: .4rem .7rem;
+  }
+  .search::placeholder { color: var(--muted); }
+  .search:focus { outline: none; border-color: var(--accent); }
   .board {
     display: grid;
     grid-auto-flow: column;
@@ -164,9 +178,11 @@
   <div class="meta">
     <a href="{{ board.milestone.url }}" target="_blank" rel="noopener">{{ board.milestone.key }}</a>
     &middot; {{ board.milestone.issue_type }}
-    &middot; {{ board.total }} child issue{{ '' if board.total == 1 else 's' }}
+    &middot; <span id="summary-count">{{ board.total }} child issue{{ '' if board.total == 1 else 's' }}</span>
     &middot; generated {{ board.generated_at }}
   </div>
+  <input id="search" class="search" type="search" autocomplete="off"
+         placeholder="Filter by title, key or assignee" aria-label="Filter child issues">
   <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
 </header>
 <main class="board">
@@ -174,7 +190,7 @@
   <section class="column" data-category="{{ column.key }}">
     <h2>{{ column.title }} <span class="count">{{ column.count }}</span></h2>
     {% for item in column.issues %}
-    <article class="card">
+    <article class="card" data-search="{{ item.key }} {{ item.summary }} {{ item.assignee or '' }}">
       <div class="key"><a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.key }}</a></div>
       <div class="summary">{{ item.summary }}</div>
       <div class="foot">
@@ -188,6 +204,7 @@
     {% else %}
     <p class="empty">No child issues</p>
     {% endfor %}
+    {% if column.issues %}<p class="empty no-match" hidden>No matches</p>{% endif %}
   </section>
   {% endfor %}
 </main>
@@ -208,6 +225,37 @@
       try { localStorage.setItem(storageKey, next); } catch (error) {}
       apply(next);
     });
+  })();
+</script>
+<script>
+  (function () {
+    var input = document.getElementById("search");
+    if (!input) { return; }
+    var columns = Array.prototype.slice.call(document.querySelectorAll(".column"));
+    var summaryCount = document.getElementById("summary-count");
+    function applyFilter() {
+      var query = input.value.trim().toLowerCase();
+      var totalVisible = 0;
+      columns.forEach(function (column) {
+        var visible = 0;
+        Array.prototype.forEach.call(column.querySelectorAll(".card"), function (card) {
+          var haystack = (card.getAttribute("data-search") || "").toLowerCase();
+          var match = query === "" || haystack.indexOf(query) !== -1;
+          card.hidden = !match;
+          if (match) { visible += 1; }
+        });
+        totalVisible += visible;
+        var count = column.querySelector(".count");
+        if (count) { count.textContent = visible; }
+        var noMatch = column.querySelector(".no-match");
+        if (noMatch) { noMatch.hidden = visible !== 0; }
+      });
+      if (summaryCount) {
+        summaryCount.textContent = totalVisible + " child issue" + (totalVisible === 1 ? "" : "s");
+      }
+    }
+    input.addEventListener("input", applyFilter);
+    input.addEventListener("search", applyFilter);
   })();
 </script>
 </body>

@@ -236,6 +236,11 @@ class RenderThemeTest(unittest.TestCase):
         self.assertIn('id="theme-toggle"', html)
         self.assertIn('data-theme="light"', html)
 
+    def test_has_search_field_and_searchable_cards(self):
+        html = render_board(self._board())
+        self.assertIn('id="search"', html)
+        self.assertIn('data-search="DPE-1 Summary for DPE-1', html)
+
 
 if __name__ == "__main__":
     unittest.main()
