@@ -101,26 +101,41 @@ class IssueParsingTest(unittest.TestCase):
 
 class GroupingTest(unittest.TestCase):
     def test_columns_are_in_workflow_order_and_always_present(self):
-        epics = [
-            make_issue("DPE-3", "Done", "done", "Done"),
-            make_issue("DPE-1", "Untriaged", "new", "To Do"),
-            make_issue("DPE-2", "In Progress", "indeterminate", "In Progress"),
+        issues = [
+            make_issue("DPE-3", "Done", "done", "Done", assignee={"displayName": "Ada"}),
+            make_issue("DPE-1", "Untriaged", "new", "To Do", assignee={"displayName": "Ada"}),
+            make_issue("DPE-2", "In Progress", "indeterminate", "In Progress", assignee={"displayName": "Ada"}),
         ]
-        columns = group_into_columns(epics)
-        self.assertEqual([c.key for c in columns], ["new", "indeterminate", "done"])
-        self.assertEqual([c.title for c in columns], ["To Do", "In Progress", "Done"])
-        self.assertEqual([c.count for c in columns], [1, 1, 1])
+        columns = group_into_columns(issues)
+        self.assertEqual([c.key for c in columns], ["unassigned", "new", "indeterminate", "done"])
+        self.assertEqual(
+            [c.title for c in columns], ["Unassigned", "To Do", "In Progress", "Done"]
+        )
+        self.assertEqual([c.count for c in columns], [0, 1, 1, 1])
 
     def test_empty_columns_are_still_rendered(self):
         columns = group_into_columns([])
-        self.assertEqual([c.key for c in columns], ["new", "indeterminate", "done"])
+        self.assertEqual([c.key for c in columns], ["unassigned", "new", "indeterminate", "done"])
         self.assertTrue(all(c.count == 0 for c in columns))
 
     def test_unknown_category_is_appended(self):
-        epics = [make_issue("DPE-9", "Blocked", "blocked", "Blocked")]
-        columns = group_into_columns(epics)
-        self.assertEqual([c.key for c in columns], ["new", "indeterminate", "done", "blocked"])
+        issues = [make_issue("DPE-9", "Blocked", "blocked", "Blocked", assignee={"displayName": "Ada"})]
+        columns = group_into_columns(issues)
+        self.assertEqual(
+            [c.key for c in columns], ["unassigned", "new", "indeterminate", "done", "blocked"]
+        )
         self.assertEqual(columns[-1].title, "Blocked")
+
+    def test_unassigned_issues_get_their_own_leading_column(self):
+        issues = [
+            make_issue("DPE-1", "In Progress", "indeterminate", "In Progress"),
+            make_issue("DPE-2", "In Progress", "indeterminate", "In Progress", assignee={"displayName": "Ada"}),
+        ]
+        columns = group_into_columns(issues)
+        by_key = {column.key: column for column in columns}
+        self.assertEqual(columns[0].key, "unassigned")
+        self.assertEqual([issue.key for issue in by_key["unassigned"].issues], ["DPE-1"])
+        self.assertEqual([issue.key for issue in by_key["indeterminate"].issues], ["DPE-2"])
 
 
 class FakeClient:
@@ -157,8 +172,8 @@ def make_milestone(key="DPE-9855"):
 class BuildBoardTest(unittest.TestCase):
     def test_tracks_mixed_children_of_parent(self):
         children = [
-            make_issue_json("DPE-1", "In Review", "indeterminate", "In Progress", issue_type="Story"),
-            make_issue_json("DPE-2", "Done", "done", "Done", issue_type="Bug"),
+            make_issue_json("DPE-1", "In Review", "indeterminate", "In Progress", issue_type="Story", assignee={"displayName": "Ada"}),
+            make_issue_json("DPE-2", "Done", "done", "Done", issue_type="Bug", assignee={"displayName": "Ada"}),
             make_issue_json("DPE-3", "Untriaged", "new", "To Do", issue_type="Epic"),
         ]
         client = FakeClient(make_milestone(), children)
@@ -168,7 +183,8 @@ class BuildBoardTest(unittest.TestCase):
 
         self.assertEqual(board.milestone.key, "DPE-9855")
         self.assertEqual(board.total, 3)
-        self.assertEqual([c.count for c in board.columns], [1, 1, 1])
+        self.assertEqual([c.key for c in board.columns], ["unassigned", "new", "indeterminate", "done"])
+        self.assertEqual([c.count for c in board.columns], [1, 0, 1, 1])
         self.assertEqual(board.generated_at, "2026-01-02 00:00 UTC")
         self.assertEqual([call[0] for call in client.calls], ["get_issue", "search"])
         self.assertEqual(
@@ -178,7 +194,9 @@ class BuildBoardTest(unittest.TestCase):
     def test_issue_without_children_yields_empty_board(self):
         board = build_board(FakeClient(make_milestone("DPE-9999"), []), "DPE-9999")
         self.assertEqual(board.total, 0)
-        self.assertEqual([c.key for c in board.columns], ["new", "indeterminate", "done"])
+        self.assertEqual(
+            [c.key for c in board.columns], ["unassigned", "new", "indeterminate", "done"]
+        )
 
 
 class ChildrenJqlTest(unittest.TestCase):

@@ -17,6 +17,11 @@ ISSUE_FIELDS = "summary,status,issuetype"
 # them, so results are intentionally not filtered by issue type.
 CHILD_FIELDS = "summary,status,issuetype,assignee,priority,duedate,parent"
 
+# Unassigned issues are lifted out of their status column into a leading
+# column of their own.
+UNASSIGNED_KEY = "unassigned"
+UNASSIGNED_TITLE = "Unassigned"
+
 
 @dataclass(frozen=True)
 class Column:
@@ -57,26 +62,38 @@ def fetch_children(client: JiraClient, task_key: str) -> list[Issue]:
 
 
 def group_into_columns(issues: list[Issue]) -> list[Column]:
-    """Group issues into kanban columns by Jira status category.
+    """Group issues into kanban columns.
 
-    The three canonical categories are always shown, in workflow order, even
-    when empty; any unexpected category is appended afterwards.
+    Unassigned issues always go into a leading ``Unassigned`` column. The rest
+    are grouped by Jira status category: the three canonical categories are
+    always shown, in workflow order, even when empty; any unexpected category
+    is appended afterwards.
     """
+    unassigned = [issue for issue in issues if not issue.assignee]
+    assigned = [issue for issue in issues if issue.assignee]
+
     by_category: dict[str, list[Issue]] = {}
-    for issue in issues:
+    for issue in assigned:
         by_category.setdefault(issue.status.category_key, []).append(issue)
+
+    columns: list[Column] = [
+        Column(
+            key=UNASSIGNED_KEY,
+            title=UNASSIGNED_TITLE,
+            issues=sorted(unassigned, key=lambda issue: (issue.status.name, issue.key)),
+        )
+    ]
 
     ordered_keys = list(STATUS_CATEGORY_ORDER)
     ordered_keys += [key for key in by_category if key not in ordered_keys]
 
-    columns: list[Column] = []
     for key in ordered_keys:
-        issues = sorted(
+        column_issues = sorted(
             by_category.get(key, []),
             key=lambda issue: (issue.status.name, issue.key),
         )
-        title = STATUS_CATEGORY_LABELS.get(key) or issues[0].status.category
-        columns.append(Column(key=key, title=title, issues=issues))
+        title = STATUS_CATEGORY_LABELS.get(key) or column_issues[0].status.category
+        columns.append(Column(key=key, title=title, issues=column_issues))
     return columns
 
 

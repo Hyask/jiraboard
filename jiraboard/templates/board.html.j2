@@ -15,6 +15,7 @@
     --progress: #0052cc;
     --done: #00875a;
     --unknown: #6554c0;
+    --unassigned: #ffab00;
   }
   * { box-sizing: border-box; }
   body {
@@ -67,6 +68,8 @@
   .column[data-category="new"] > h2 { color: var(--ink); }
   .column[data-category="indeterminate"] > h2 { color: var(--progress); }
   .column[data-category="done"] > h2 { color: var(--done); }
+  .column[data-category="unassigned"] > h2 { color: #974f0c; }
+  .column[data-category="unassigned"] { background: #fff7e6; }
   .card {
     background: var(--panel);
     border-radius: 6px;
@@ -78,6 +81,7 @@
   .column[data-category="new"] .card { border-left-color: var(--todo); }
   .column[data-category="indeterminate"] .card { border-left-color: var(--progress); }
   .column[data-category="done"] .card { border-left-color: var(--done); }
+  .column[data-category="unassigned"] .card { border-left-color: var(--unassigned); }
   .card .key { font-size: .75rem; font-weight: 600; }
   .card .key a { color: var(--progress); text-decoration: none; }
   .card .key a:hover { text-decoration: underline; }
