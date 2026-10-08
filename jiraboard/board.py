@@ -18,9 +18,10 @@ ISSUE_FIELDS = "summary,status,issuetype"
 CHILD_FIELDS = "summary,status,issuetype,assignee,priority,duedate,parent"
 
 # Unassigned issues are lifted out of their status column into a leading
-# column of their own.
+# column of their own — except closed (done-category) issues, which stay put.
 UNASSIGNED_KEY = "unassigned"
 UNASSIGNED_TITLE = "Unassigned"
+DONE_KEY = "done"
 
 
 @dataclass(frozen=True)
@@ -64,17 +65,23 @@ def fetch_children(client: JiraClient, task_key: str) -> list[Issue]:
 def group_into_columns(issues: list[Issue]) -> list[Column]:
     """Group issues into kanban columns.
 
-    Unassigned issues always go into a leading ``Unassigned`` column. The rest
-    are grouped by Jira status category: the three canonical categories are
+    Closed issues (anything in Jira's ``done`` status category, e.g. *Done* or
+    *Rejected*) always stay in the ``Done`` column, assigned or not. Every other
+    unassigned issue goes into the leading ``Unassigned`` column. The remaining
+    issues are grouped by status category: the three canonical categories are
     always shown, in workflow order, even when empty; any unexpected category
     is appended afterwards.
     """
-    unassigned = [issue for issue in issues if not issue.assignee]
-    assigned = [issue for issue in issues if issue.assignee]
+    unassigned = [
+        issue
+        for issue in issues
+        if not issue.assignee and issue.status.category_key != DONE_KEY
+    ]
 
     by_category: dict[str, list[Issue]] = {}
-    for issue in assigned:
-        by_category.setdefault(issue.status.category_key, []).append(issue)
+    for issue in issues:
+        if issue.assignee or issue.status.category_key == DONE_KEY:
+            by_category.setdefault(issue.status.category_key, []).append(issue)
 
     columns: list[Column] = [
         Column(

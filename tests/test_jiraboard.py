@@ -137,6 +137,19 @@ class GroupingTest(unittest.TestCase):
         self.assertEqual([issue.key for issue in by_key["unassigned"].issues], ["DPE-1"])
         self.assertEqual([issue.key for issue in by_key["indeterminate"].issues], ["DPE-2"])
 
+    def test_unassigned_closed_issues_stay_in_done(self):
+        issues = [
+            make_issue("DPE-1", "Rejected", "done", "Done"),
+            make_issue("DPE-2", "Done", "done", "Done", assignee={"displayName": "Ada"}),
+            make_issue("DPE-3", "In Progress", "indeterminate", "In Progress"),
+        ]
+        columns = group_into_columns(issues)
+        by_key = {column.key: column for column in columns}
+        self.assertEqual([issue.key for issue in by_key["unassigned"].issues], ["DPE-3"])
+        self.assertEqual(
+            sorted(issue.key for issue in by_key["done"].issues), ["DPE-1", "DPE-2"]
+        )
+
 
 class FakeClient:
     base_url = BASE

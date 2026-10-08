@@ -8,10 +8,12 @@ Children are found by querying the issue `parent` field
 (`GET /rest/api/3/search/jql?jql=parent = "<KEY>"`) and following
 `nextPageToken` pagination. Results are deliberately *not* filtered by issue
 type, so every hierarchy level is tracked by the same code path. Unassigned
-issues are collected into a leading **Unassigned** column; the rest are grouped
-into three workflow columns — **To Do**, **In Progress**, **Done** — based on
-their Jira status category. Each card links back to Jira and shows the issue
-type, exact status, priority, assignee and due date.
+issues are collected into a leading **Unassigned** column, except closed issues
+(*Done*, *Rejected*, *Closed* …), which always stay in the **Done** column
+whether or not they are assigned; the rest are grouped into three workflow
+columns — **To Do**, **In Progress**, **Done** — based on their Jira status
+category. Each card links back to Jira and shows the issue type, exact status,
+priority, assignee and due date.
 
 ## Requirements
 
