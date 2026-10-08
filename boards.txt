@@ -1,0 +1,9 @@
+# One Jira issue key per line. Each key's direct children become a report on
+# the published site. Blank lines and lines starting with '#' are ignored.
+ADT-1590
+ADT-1591
+ADT-1592
+ADT-1593
+ADT-1594
+ADT-1595
+ADT-1596

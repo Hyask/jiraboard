@@ -7,9 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from jiraboard.board import Board, Column, build_board, children_jql, group_into_columns
-from jiraboard.config import ConfigError, read_credentials
+from jiraboard.config import ConfigError, read_credentials, resolve_base_url
+from jiraboard.client import JiraError
 from jiraboard.models import Issue, Status
-from jiraboard.render import render_board
+from jiraboard.render import render_board, render_index
+from jiraboard.site import generate_site, read_board_keys
 
 BASE = "https://warthogs.atlassian.net"
 
@@ -240,6 +242,103 @@ class RenderThemeTest(unittest.TestCase):
         html = render_board(self._board())
         self.assertIn('id="search"', html)
         self.assertIn('data-search="DPE-1 Summary for DPE-1', html)
+
+
+class ResolveBaseUrlTest(unittest.TestCase):
+    def test_explicit_value_wins_and_trailing_slash_is_trimmed(self):
+        self.assertEqual(resolve_base_url("https://example.atlassian.net/"), "https://example.atlassian.net")
+
+    def test_env_var_is_used_when_no_explicit_value(self):
+        original = dict(os.environ)
+        os.environ["JIRA_BASE_URL"] = "https://env.atlassian.net"
+        try:
+            self.assertEqual(resolve_base_url(), "https://env.atlassian.net")
+        finally:
+            os.environ.clear()
+            os.environ.update(original)
+
+
+class ReadBoardKeysTest(unittest.TestCase):
+    def test_reads_keys_ignoring_blanks_and_comments(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "boards.txt"
+            path.write_text(
+                "# a comment\n\nADT-1596\n  dpe-10166  \nADT-1596\n", encoding="utf-8"
+            )
+            self.assertEqual(read_board_keys(path), ["ADT-1596", "DPE-10166"])
+
+
+class SiteClient:
+    """Returns a board per key and tracks which keys were requested."""
+
+    base_url = BASE
+
+    def __init__(self, children_by_key=None, failing=()):
+        self.children_by_key = children_by_key or {}
+        self.failing = set(failing)
+        self.requested = []
+
+    def get_issue(self, key, fields):
+        self.requested.append(key)
+        if key in self.failing:
+            raise JiraError(404, f"issue {key} not found")
+        return {
+            "key": key,
+            "fields": {
+                "summary": f"Board for {key}",
+                "issuetype": {"name": "Epic"},
+                "status": {"name": "To Do", "statusCategory": {"key": "new", "name": "To Do"}},
+            },
+        }
+
+    def search(self, jql, fields):
+        key = jql.split('"')[1]
+        return iter(self.children_by_key.get(key, []))
+
+
+class GenerateSiteTest(unittest.TestCase):
+    def test_writes_a_board_per_key_and_an_index(self):
+        children = {
+            "ADT-1596": [make_issue_json("ADT-1", "Done", "done", "Done", assignee={"displayName": "Ada"})],
+        }
+        client = SiteClient(children)
+        with tempfile.TemporaryDirectory() as tmp:
+            reports = generate_site(client, ["ADT-1596", "DPE-9855"], tmp, now=datetime(2026, 1, 2, tzinfo=timezone.utc))
+            out = Path(tmp)
+            self.assertTrue((out / "ADT-1596-board.html").is_file())
+            self.assertTrue((out / "DPE-9855-board.html").is_file())
+            self.assertTrue((out / "index.html").is_file())
+            self.assertTrue((out / ".nojekyll").is_file())
+        self.assertEqual([report.key for report in reports], ["ADT-1596", "DPE-9855"])
+        self.assertEqual([report.total for report in reports], [1, 0])
+        self.assertIsNone(reports[0].error)
+
+    def test_failed_key_is_listed_on_the_index_without_aborting(self):
+        client = SiteClient({"DPE-9855": []}, failing={"ADT-1596"})
+        with tempfile.TemporaryDirectory() as tmp:
+            reports = generate_site(client, ["ADT-1596", "DPE-9855"], tmp)
+            self.assertTrue((Path(tmp) / "DPE-9855-board.html").is_file())
+            self.assertFalse((Path(tmp) / "ADT-1596-board.html").exists())
+            index = (Path(tmp) / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(reports[0].error, "Jira API error 404: issue ADT-1596 not found")
+        self.assertIn("Could not generate", index)
+        self.assertIn("DPE-9855-board.html", index)
+
+
+class RenderIndexTest(unittest.TestCase):
+    def test_lists_reports_and_links_to_them(self):
+        report = type("Report", (), {
+            "key": "ADT-1596",
+            "title": "Board for ADT-1596",
+            "filename": "ADT-1596-board.html",
+            "total": 3,
+            "generated_at": "2026-01-02 00:00 UTC",
+            "error": None,
+        })()
+        html = render_index([report])
+        self.assertIn('href="ADT-1596-board.html"', html)
+        self.assertIn("Board for ADT-1596", html)
+        self.assertIn("3 child issues", html)
 
 
 if __name__ == "__main__":

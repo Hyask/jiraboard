@@ -57,6 +57,40 @@ python3 -m jiraboard ADT-1589 --base-url https://example.atlassian.net --token-f
 found via the `parent` field, so it works the same whether `<KEY>` is an
 Objective (children are Epics) or an Epic (children are Stories/Tasks/Bugs).
 
+## Publishing a set of reports
+
+To publish several boards at once, list their keys (one per line, `#` for
+comments) in `boards.txt`, then generate a whole static site — a board per key
+plus an `index.html` linking them:
+
+```bash
+python3 -m jiraboard.site
+# -> out/ADT-1596-board.html, out/DPE-9855-board.html, ..., out/index.html
+
+python3 -m jiraboard.site --boards-file boards.txt -o out
+```
+
+A key that cannot be fetched (for example a 404) is shown on the index with its
+error instead of aborting the other reports.
+
+## GitHub Actions / GitHub Pages
+
+`.github/workflows/pages.yml` builds the site on every push to `main`, once a
+day, and on manual dispatch, then deploys `out/` to GitHub Pages using the
+official Pages actions.
+
+Configure the repository first:
+
+- **Settings → Pages → Build and deployment → Source: GitHub Actions**
+- **Settings → Secrets and variables → Actions**
+  - secret `JIRA_EMAIL` — Atlassian account email
+  - secret `JIRA_API_TOKEN` — read-only Jira API token
+  - variable `JIRA_BASE_URL` (optional) — Jira site URL, defaults to the
+    warthogs site
+
+The published site's index lists every report with its child-issue count and a
+link to the board.
+
 ## Development
 
 ```bash
@@ -68,6 +102,7 @@ python3 -m unittest discover -s tests -v
 ```
 jiraboard/
   __main__.py     CLI entry point (python -m jiraboard)
+  site.py         multi-report CLI + index generator (python -m jiraboard.site)
   config.py       credential/token loading and validation
   client.py       read-only Jira REST v3 client (basic auth + search pagination)
   models.py       Status / Issue dataclasses
@@ -75,7 +110,9 @@ jiraboard/
   render.py       Jinja environment and report writer
   templates/
     board.html.j2 self-contained kanban board
+    index.html.j2 index linking every report
 tests/            stdlib unittest suite
+boards.txt        hard-coded list of issue keys to publish
 ```
 
 ## Notes

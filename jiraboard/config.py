@@ -12,6 +12,11 @@ class ConfigError(RuntimeError):
     """Raised when the Jira credentials or configuration are unusable."""
 
 
+def resolve_base_url(base_url: str | None = None) -> str:
+    """Return the Jira site URL: explicit, then ``JIRA_BASE_URL``, then default."""
+    return (base_url or os.environ.get("JIRA_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+
+
 @dataclass(frozen=True)
 class JiraConfig:
     """Everything needed to talk to Jira and render a report."""
@@ -31,9 +36,9 @@ class JiraConfig:
         token_file: str | None = None,
     ) -> "JiraConfig":
         email, api_token = read_credentials(token_file)
-        resolved_base = base_url or os.environ.get("JIRA_BASE_URL") or DEFAULT_BASE_URL
+        resolved_base = resolve_base_url(base_url)
         return cls(
-            base_url=resolved_base.rstrip("/"),
+            base_url=resolved_base,
             email=email,
             api_token=api_token,
             task_key=task_key.strip().upper(),

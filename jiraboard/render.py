@@ -8,6 +8,7 @@ from .board import Board
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 TEMPLATE_NAME = "board.html.j2"
+INDEX_TEMPLATE_NAME = "index.html.j2"
 
 
 def _environment() -> Environment:
@@ -25,8 +26,20 @@ def render_board(board: Board) -> str:
     return _environment().get_template(TEMPLATE_NAME).render(board=board)
 
 
-def write_report(board: Board, output: Path) -> Path:
+def render_index(reports: list) -> str:
+    return _environment().get_template(INDEX_TEMPLATE_NAME).render(reports=reports)
+
+
+def _write(text: str, output: Path) -> Path:
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render_board(board), encoding="utf-8")
+    output.write_text(text, encoding="utf-8")
     return output
+
+
+def write_report(board: Board, output: Path) -> Path:
+    return _write(render_board(board), output)
+
+
+def write_index(reports: list, output: Path) -> Path:
+    return _write(render_index(reports), output)

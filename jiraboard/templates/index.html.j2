@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jira board reports</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #1d2125;
+    --panel: #22272b;
+    --column-bg: #161a1d;
+    --ink: #b6c2cf;
+    --muted: #8c9bab;
+    --line: #2c333a;
+    --accent: #579dff;
+    --badge-bg: rgba(255, 255, 255, .10);
+    --badge-ink: #b6c2cf;
+    --error: #ff9c8f;
+    --error-bg: #3a2422;
+    --shadow: none;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --column-bg: #ebecf0;
+    --ink: #172b4d;
+    --muted: #6b778c;
+    --line: #dfe1e6;
+    --accent: #0052cc;
+    --badge-bg: rgba(9, 30, 66, .08);
+    --badge-ink: #172b4d;
+    --error: #ae2a19;
+    --error-bg: #ffedeb;
+    --shadow: 0 1px 1px rgba(9, 30, 66, .15);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  header {
+    position: relative;
+    padding: 1.5rem 2rem 1rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0 0 .25rem; font-size: 1.35rem; }
+  header .meta { color: var(--muted); font-size: .85rem; }
+  .theme-toggle {
+    position: absolute;
+    top: 1.4rem;
+    right: 2rem;
+    font: inherit;
+    font-size: .78rem;
+    color: var(--ink);
+    background: var(--badge-bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .3rem .8rem;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  main {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem 2rem 3rem;
+    align-items: start;
+  }
+  .report {
+    display: block;
+    background: var(--panel);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: .8rem .9rem;
+    box-shadow: var(--shadow);
+  }
+  .report .key { font-size: .75rem; font-weight: 600; }
+  .report h2 { margin: .2rem 0 .6rem; font-size: .95rem; }
+  .report a { color: inherit; text-decoration: none; }
+  .report a:hover { color: var(--accent); }
+  .report .key a { color: var(--accent); }
+  .report .key a:hover { text-decoration: underline; }
+  .report .foot { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+  .badge {
+    font-size: .68rem;
+    border-radius: 3px;
+    padding: .1rem .4rem;
+    background: var(--badge-bg);
+    color: var(--badge-ink);
+    white-space: nowrap;
+  }
+  .report.failed { border-left-color: var(--error); }
+  .error {
+    margin: 0;
+    font-size: .78rem;
+    color: var(--error);
+    background: var(--error-bg);
+    border-radius: 4px;
+    padding: .4rem .5rem;
+    word-wrap: break-word;
+  }
+  .empty { color: var(--muted); font-size: .85rem; font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Jira board reports</h1>
+  <div class="meta">{{ reports|length }} report{{ '' if reports|length == 1 else 's' }}</div>
+  <button id="theme-toggle" class="theme-toggle" type="button">Light mode</button>
+</header>
+<main>
+  {% for report in reports %}
+  <article class="report{{ ' failed' if report.error else '' }}">
+    {% if report.error %}
+    <div class="key">{{ report.key }}</div>
+    <p class="error">Could not generate: {{ report.error }}</p>
+    {% else %}
+    <div class="key"><a href="{{ report.filename }}">{{ report.key }}</a></div>
+    <h2><a href="{{ report.filename }}">{{ report.title }}</a></h2>
+    <div class="foot">
+      <span class="badge">{{ report.total }} child issue{{ '' if report.total == 1 else 's' }}</span>
+      <span class="badge">generated {{ report.generated_at }}</span>
+    </div>
+    {% endif %}
+  </article>
+  {% else %}
+  <p class="empty">No reports configured.</p>
+  {% endfor %}
+</main>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById("theme-toggle");
+    var storageKey = "jiraboard-theme";
+    function apply(theme) {
+      root.setAttribute("data-theme", theme);
+      toggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+    }
+    var saved = null;
+    try { saved = localStorage.getItem(storageKey); } catch (error) {}
+    apply(saved === "light" ? "light" : "dark");
+    toggle.addEventListener("click", function () {
+      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      try { localStorage.setItem(storageKey, next); } catch (error) {}
+      apply(next);
+    });
+  })();
+</script>
+</body>
+</html>
