@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ board.milestone.key }} &middot; Epic status</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --ink: #172b4d;
+    --muted: #6b778c;
+    --line: #dfe1e6;
+    --todo: #dfe1e6;
+    --progress: #0052cc;
+    --done: #00875a;
+    --unknown: #6554c0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  header {
+    padding: 1.5rem 2rem 1rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0 0 .25rem; font-size: 1.35rem; }
+  header .meta { color: var(--muted); font-size: .85rem; }
+  header .meta a { color: var(--progress); text-decoration: none; }
+  header .meta a:hover { text-decoration: underline; }
+  .board {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(260px, 1fr);
+    gap: 1rem;
+    padding: 1.5rem 2rem 3rem;
+    overflow-x: auto;
+    align-items: start;
+  }
+  .column {
+    background: #ebecf0;
+    border-radius: 8px;
+    padding: .75rem;
+    min-height: 120px;
+  }
+  .column > h2 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 0 .5rem;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+  }
+  .column > h2 .count {
+    background: rgba(9, 30, 66, .08);
+    border-radius: 999px;
+    padding: .05rem .5rem;
+    font-size: .75rem;
+  }
+  .column[data-category="new"] > h2 { color: var(--ink); }
+  .column[data-category="indeterminate"] > h2 { color: var(--progress); }
+  .column[data-category="done"] > h2 { color: var(--done); }
+  .card {
+    background: var(--panel);
+    border-radius: 6px;
+    border-left: 4px solid var(--unknown);
+    padding: .6rem .7rem;
+    margin-bottom: .5rem;
+    box-shadow: 0 1px 1px rgba(9, 30, 66, .15);
+  }
+  .column[data-category="new"] .card { border-left-color: var(--todo); }
+  .column[data-category="indeterminate"] .card { border-left-color: var(--progress); }
+  .column[data-category="done"] .card { border-left-color: var(--done); }
+  .card .key { font-size: .75rem; font-weight: 600; }
+  .card .key a { color: var(--progress); text-decoration: none; }
+  .card .key a:hover { text-decoration: underline; }
+  .card .summary { margin: .2rem 0 .5rem; font-size: .85rem; word-wrap: break-word; }
+  .card .foot { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+  .badge {
+    font-size: .68rem;
+    border-radius: 3px;
+    padding: .1rem .4rem;
+    background: rgba(9, 30, 66, .08);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .badge.priority { background: #deebff; color: #0747a6; }
+  .badge.status { background: var(--todo); }
+  .empty { color: var(--muted); font-size: .8rem; font-style: italic; padding: .25rem .1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{ board.milestone.summary }}</h1>
+  <div class="meta">
+    <a href="{{ board.milestone.url }}" target="_blank" rel="noopener">{{ board.milestone.key }}</a>
+    &middot; {{ board.milestone.issue_type }}
+    &middot; {{ board.total }} epic{{ '' if board.total == 1 else 's' }}
+    &middot; generated {{ board.generated_at }}
+  </div>
+</header>
+<main class="board">
+  {% for column in board.columns %}
+  <section class="column" data-category="{{ column.key }}">
+    <h2>{{ column.title }} <span class="count">{{ column.count }}</span></h2>
+    {% for epic in column.issues %}
+    <article class="card">
+      <div class="key"><a href="{{ epic.url }}" target="_blank" rel="noopener">{{ epic.key }}</a></div>
+      <div class="summary">{{ epic.summary }}</div>
+      <div class="foot">
+        <span class="badge status">{{ epic.status.name }}</span>
+        {% if epic.priority %}<span class="badge priority">{{ epic.priority }}</span>{% endif %}
+        {% if epic.assignee %}<span class="badge">{{ epic.assignee }}</span>{% endif %}
+        {% if epic.due_date %}<span class="badge">due {{ epic.due_date }}</span>{% endif %}
+      </div>
+    </article>
+    {% else %}
+    <p class="empty">No epics</p>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</main>
+</body>
+</html>
